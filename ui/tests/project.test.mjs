@@ -40,3 +40,12 @@ test("Fastlane configuration matches Standalone and AUv3 bundle identifiers", ()
   assert.match(fastfile, /AUV3_ID = "me\.ca5\./);
   assert.match(fastfile, /latest_build\.to_i \+ 1/);
 });
+
+test("Custom StandaloneApp exists and suppresses feedback loop warning", () => {
+  const standaloneAppPath = path.join(repoRoot, "Source/StandaloneApp.cpp");
+  assert.ok(fs.existsSync(standaloneAppPath), "Source/StandaloneApp.cpp must exist");
+  const cmake = fs.readFileSync(path.join(repoRoot, "CMakeLists.txt"), "utf8");
+  assert.match(cmake, /JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1/);
+  assert.match(cmake, /Source\/StandaloneApp\.cpp/);
+});
+

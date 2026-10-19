@@ -56,6 +56,11 @@ target_sources(JuceAppTemplate PRIVATE
     Source/PluginEditor.h
 )
 
+# Custom Standalone App (suppresses "Audio input is muted to avoid feedback loop" warning banner)
+target_sources(JuceAppTemplate_Standalone PRIVATE Source/StandaloneApp.cpp)
+target_compile_definitions(JuceAppTemplate_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
+
+
 target_compile_definitions(JuceAppTemplate PUBLIC
     JUCE_WEB_BROWSER=1
     JUCE_USE_CURL=0

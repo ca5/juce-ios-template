@@ -10,6 +10,7 @@
 - `Source/`: C++ オーディオ DSP および JUCE WebView エディタ実装
   - `PluginProcessor.cpp` / `PluginProcessor.h`: オーディオエンジン、MIDI処理、パラメータ（APVTS）
   - `PluginEditor.cpp` / `PluginEditor.h`: JUCE WebView ホスト、ネイティブ ⇄ Web UI 双方向イベント通信
+  - `StandaloneApp.cpp`: "Audio input is muted..." 警告バーを非表示化したカスタム Standalone 実装
 - `ui/`: React 19 + TypeScript + Vite によるフロントエンド UI
   - `src/bridge.ts`: JUCE ネイティブ双方向バインディング（イベント送信・購読）
   - `src/App.tsx`: メイン UI コンポーネント

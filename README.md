@@ -18,6 +18,8 @@ JUCE 8 + React Web UI + CMake による、**iOS Standalone アプリ** および
   - Standalone と AUv3 の両ターゲットに対する手動署名（Manual Code Signing）パッチ。
   - ビルド番号（`CFBundleVersion`）の自動インクリメント。
   - GitHub Actions からのワンクリックまたはタグ push による TestFlight 自動配信。
+- **フィードバック警告バー抑制済みのカスタム Standalone 実装**:
+  - JUCE 標準の Standalone アプリで画面上部に出てしまう `"Audio input is muted to avoid feedback loop"` 赤色警告バーを完全非表示化し、クリーンなフルスクリーン表示を実現 (`Source/StandaloneApp.cpp`)。
 - **1コマンド量産化スクリプト**:
   - `./scripts/rename_project.sh` を叩くだけで、プロジェクト名・Bundle ID・Team ID を一括置換。
 - **Google Jules / AI Agent ガイド (`AGENTS.md`)**:
