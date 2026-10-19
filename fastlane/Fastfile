@@ -113,6 +113,32 @@ platform :ios do
     end
 
     cert_id = Actions.lane_context[SharedValues::CERT_CERTIFICATE_ID]
+    app_display_name = SCHEME_NAME.sub(/_Standalone$/, "")
+
+    # Ensure App Identifiers and App Store Connect entries exist
+    begin
+      produce(
+        api_key: api_key,
+        app_identifier: APP_ID,
+        app_name: app_display_name,
+        language: "en-US",
+        team_id: TEAM_ID
+      )
+    rescue => ex
+      UI.message("produce main app notice: #{ex.message}")
+    end
+
+    begin
+      produce(
+        api_key: api_key,
+        app_identifier: AUV3_ID,
+        app_name: "#{app_display_name} AUv3",
+        skip_itc: true,
+        team_id: TEAM_ID
+      )
+    rescue => ex
+      UI.message("produce AUv3 extension notice: #{ex.message}")
+    end
 
     get_provisioning_profile(
       api_key: api_key,
