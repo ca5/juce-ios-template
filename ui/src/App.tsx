@@ -30,8 +30,13 @@ export const App: React.FC = () => {
       flexDirection: "column",
       justifyContent: "space-between",
       alignItems: "center",
+      width: "100%",
       height: "100%",
-      padding: "24px 16px",
+      boxSizing: "border-box",
+      paddingTop: "calc(env(safe-area-inset-top, 0px) + 16px)",
+      paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+      paddingLeft: "calc(env(safe-area-inset-left, 0px) + 16px)",
+      paddingRight: "calc(env(safe-area-inset-right, 0px) + 16px)",
       background: "radial-gradient(circle at 50% 20%, #1e2433 0%, #0c0e14 100%)",
       color: "#ffffff"
     }}>
