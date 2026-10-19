@@ -6,11 +6,36 @@ JuceAppTemplateAudioProcessorEditor::JuceAppTemplateAudioProcessorEditor (JuceAp
 {
     setOpaque (true);
 
-    juce::WebBrowserComponent::Options options;
+    const auto bridgeInitScript = juce::String (
+        "window.__initJuceBridge = function() {"
+        "  if (!window.webkit) window.webkit = {};"
+        "  if (!window.webkit.messageHandlers) window.webkit.messageHandlers = {};"
+        "  window.webkit.messageHandlers.juce = {"
+        "    postMessage: function(msg) {"
+        "      if (window.__JUCE__ && window.__JUCE__.backend) {"
+        "        window.__JUCE__.backend.emitEvent('juceBridge', msg);"
+        "      }"
+        "    }"
+        "  };"
+        "};"
+        "if (document.readyState === 'loading') {"
+        "  document.addEventListener('DOMContentLoaded', window.__initJuceBridge);"
+        "} else {"
+        "  window.__initJuceBridge();"
+        "}"
+    );
 
-   #if JUCE_MODAL_LOOPS_PERMITTED
-    options = options.withNativeIntegrationEnabled();
-   #endif
+    auto options = juce::WebBrowserComponent::Options()
+        .withNativeIntegrationEnabled()
+        .withUserScript (bridgeInitScript)
+        .withEventListener ("juceBridge", [this] (const juce::var& data) {
+            if (data.isObject())
+            {
+                auto eventName = data.getProperty ("event", {}).toString();
+                auto payload = data.getProperty ("payload", {});
+                handleWebEvent (eventName, payload);
+            }
+        });
 
     // ui/dist フォルダの解決
     const auto distDir = getUiDistFolder();

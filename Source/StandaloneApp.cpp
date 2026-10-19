@@ -38,7 +38,7 @@ public:
         setFullScreen (true);
 
         if (auto* display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
-            setBounds (display->totalArea);
+            setBounds (display->userArea);
 #else
         setUsingNativeTitleBar (true);
 #endif
@@ -49,19 +49,18 @@ public:
         // 2. Suppress feedback loop warning and configure audio pass-through
         pluginHolder->getMuteInputValue().setValue (true);
 
-        // 3. Audio Device Setup
+        // 3. Audio Device Setup (0 inputs, 2 outputs to avoid microphone entitlement crash on iOS)
         auto desc = juce::AudioDeviceManager::AudioDeviceSetup();
         pluginHolder->deviceManager.getAudioDeviceSetup (desc);
-        desc.inputChannels.setBit (0);
-        desc.inputChannels.setBit (1);
+        desc.inputChannels.clear();
         desc.outputChannels.setBit (0);
         desc.outputChannels.setBit (1);
-        pluginHolder->deviceManager.initialise (2, 2, nullptr, true, juce::String(), &desc);
+        pluginHolder->deviceManager.initialise (0, 2, nullptr, true, juce::String(), &desc);
 
         // 4. Create and attach Plugin Editor
         if (auto* processor = pluginHolder->processor.get())
         {
-            if (auto* editor = processor->createEditor())
+            if (auto* editor = processor->createEditorIfNeeded())
             {
 #if JUCE_IOS
                 setContentOwned (editor, false);

@@ -16,16 +16,30 @@ class JuceBridge {
     }
   }
 
+  // Check if running inside JUCE Native WebView
+  public isNative(): boolean {
+    if (typeof window === "undefined") return false;
+    const anyWin = window as any;
+    return !!(anyWin.__JUCE__?.backend?.emitEvent || anyWin.webkit?.messageHandlers?.juce);
+  }
+
   // Send an event or parameter change to JUCE C++
   public send(eventName: string, payload: any): void {
-    if (typeof window !== "undefined" && (window as any).webkit?.messageHandlers?.juce) {
-      (window as any).webkit.messageHandlers.juce.postMessage({
-        event: eventName,
-        payload
-      });
-    } else {
-      console.log(`[JuceBridge Mock] Send: ${eventName}`, payload);
+    if (typeof window !== "undefined") {
+      const anyWin = window as any;
+      if (anyWin.__JUCE__?.backend?.emitEvent) {
+        anyWin.__JUCE__.backend.emitEvent("juceBridge", { event: eventName, payload });
+        return;
+      }
+      if (anyWin.webkit?.messageHandlers?.juce) {
+        anyWin.webkit.messageHandlers.juce.postMessage({
+          event: eventName,
+          payload
+        });
+        return;
+      }
     }
+    console.log(`[JuceBridge Mock] Send: ${eventName}`, payload);
   }
 
   // Subscribe to native JUCE events
