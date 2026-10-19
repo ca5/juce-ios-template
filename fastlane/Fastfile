@@ -1,0 +1,231 @@
+require "base64"
+require "tmpdir"
+require "fileutils"
+
+default_platform(:ios)
+
+APP_ID = "me.ca5.template"
+AUV3_ID = "me.ca5.template.templateAUv3"
+TEAM_ID = ENV["APPLE_TEAM_ID"] || "MX8BPUQ84Q"
+XCODEPROJ_PATH = "build_ios/JuceAppTemplate.xcodeproj"
+SCHEME_NAME = "JuceAppTemplate_Standalone"
+PLIST_PATHS = [
+  "build_ios/CMakeFiles/JuceAppTemplate_Standalone.dir/Info.plist",
+  "build_ios/CMakeFiles/JuceAppTemplate_AUv3.dir/Info.plist",
+  "build_ios/JuceAppTemplate_artefacts/JuceLibraryCode/JuceAppTemplate_Standalone/Info.plist",
+  "build_ios/JuceAppTemplate_artefacts/JuceLibraryCode/JuceAppTemplate_AUv3/Info.plist"
+]
+
+platform :ios do
+  desc "Build and upload iOS App (Standalone + AUv3) to TestFlight"
+  lane :beta do
+    setup_ci if is_ci
+
+    key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"] || ENV["API_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"] || ENV["API_ISSUER_ID"]
+    key_content = ENV["APP_STORE_CONNECT_API_KEY_CONTENT"] || ENV["API_KEY_CONTENT"]
+
+    if key_id.to_s.empty? || issuer_id.to_s.empty? || key_content.to_s.empty?
+      UI.user_error!("Missing App Store Connect API Key environment variables (APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_API_KEY_CONTENT)")
+    end
+
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_content,
+      is_key_content_base64: !(key_content =~ /BEGIN PRIVATE KEY/),
+      in_house: false
+    )
+
+    # 1. Increment and synchronize CFBundleVersion across Standalone and AUv3 plists
+    latest_build = 0
+    begin
+      latest_build = latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: APP_ID,
+        initial_build_number: 0
+      )
+    rescue => ex
+      UI.message("Could not query latest TestFlight build number (#{ex.message}), using run number fallback.")
+    end
+
+    run_number = (ENV["GITHUB_RUN_NUMBER"] || "1").to_i
+    next_build = [latest_build.to_i + 1, run_number].max.to_s
+    UI.message("Setting CFBundleVersion to #{next_build} for Standalone and AUv3 targets")
+
+    repo_root = File.expand_path("..", __dir__)
+    PLIST_PATHS.each do |rel_path|
+      abs_plist = File.join(repo_root, rel_path)
+      next unless File.exist?(abs_plist)
+
+      set_info_plist_value(
+        path: abs_plist,
+        key: "CFBundleVersion",
+        value: next_build
+      )
+    end
+
+    # 2. Certificate & Provisioning Profiles (Standalone + AUv3 AppExtension)
+    keychain_path = if is_ci
+      [
+        File.expand_path("~/Library/Keychains/fastlane_tmp_keychain-db"),
+        File.expand_path("~/Library/Keychains/fastlane_tmp_keychain"),
+        FastlaneCore::Helper.keychain_path("fastlane_tmp_keychain")
+      ].compact.find { |p| File.exist?(p) }
+    end
+    keychain_password = is_ci ? "" : nil
+
+    if ENV["BUILD_CERTIFICATE_BASE64"] && !ENV["BUILD_CERTIFICATE_BASE64"].empty?
+      import_certificate(
+        certificate_path: begin
+          cert_file = File.join(Dir.tmpdir, "dist_cert.p12")
+          File.binwrite(cert_file, Base64.decode64(ENV["BUILD_CERTIFICATE_BASE64"]))
+          cert_file
+        end,
+        certificate_password: ENV["P12_PASSWORD"] || "",
+        keychain_name: is_ci ? "fastlane_tmp_keychain" : nil,
+        keychain_password: keychain_password
+      )
+    else
+      if is_ci
+        begin
+          require "spaceship"
+          Spaceship::ConnectAPI.token ||= Spaceship::ConnectAPI::Token.from(hash: api_key)
+          all_certs = Spaceship::ConnectAPI::Certificate.all
+          dist_certs = all_certs.select { |c| c.certificate_type.to_s.include?("DISTRIBUTION") }
+          UI.message("Found #{dist_certs.count} existing distribution certificate(s) on portal (keychain_path=#{keychain_path})")
+          dist_certs.each do |c|
+            UI.message("Revoking previous CI distribution certificate: #{c.id} (#{c.name} / #{c.certificate_type})")
+            c.delete!
+          end
+        rescue => ex
+          UI.message("Could not clean up existing CI certificates: #{ex.class}: #{ex.message}")
+        end
+      end
+
+      get_certificates(
+        api_key: api_key,
+        development: false,
+        team_id: TEAM_ID,
+        keychain_path: keychain_path,
+        keychain_password: keychain_password
+      )
+    end
+
+    cert_id = Actions.lane_context[SharedValues::CERT_CERTIFICATE_ID]
+
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      team_id: TEAM_ID,
+      cert_id: cert_id,
+      force: is_ci
+    )
+    main_profile_name = Actions.lane_context[SharedValues::SIGH_NAME]
+
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: AUV3_ID,
+      team_id: TEAM_ID,
+      cert_id: cert_id,
+      force: is_ci
+    )
+    auv3_profile_name = Actions.lane_context[SharedValues::SIGH_NAME]
+
+    xcodeproj_abs = File.join(repo_root, XCODEPROJ_PATH)
+    pbxproj_path = File.join(xcodeproj_abs, "project.pbxproj")
+    pbxproj = File.read(pbxproj_path)
+    pbxproj.gsub!(/buildSettings = \{.*?\};/m) do |block|
+      if block.include?("PRODUCT_BUNDLE_IDENTIFIER = #{AUV3_ID};")
+        block.sub(
+          "PRODUCT_BUNDLE_IDENTIFIER = #{AUV3_ID};",
+          "PRODUCT_BUNDLE_IDENTIFIER = #{AUV3_ID};\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = #{TEAM_ID};\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"#{auv3_profile_name}\";"
+        )
+      elsif block.include?("PRODUCT_BUNDLE_IDENTIFIER = #{APP_ID};")
+        block.sub(
+          "PRODUCT_BUNDLE_IDENTIFIER = #{APP_ID};",
+          "PRODUCT_BUNDLE_IDENTIFIER = #{APP_ID};\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tDEVELOPMENT_TEAM = #{TEAM_ID};\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";\n\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"Apple Distribution\";\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"#{main_profile_name}\";"
+        )
+      elsif !block.include?("PRODUCT_BUNDLE_IDENTIFIER") && !block.include?("IPHONEOS_DEPLOYMENT_TARGET")
+        block.sub(
+          "buildSettings = {",
+          "buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;"
+        )
+      else
+        block
+      end
+    end
+    File.write(pbxproj_path, pbxproj)
+
+    # 3. Build & Archive IPA directly via xcodebuild
+    derived_data_abs = File.join(repo_root, "DerivedData")
+    archive_path = File.join(derived_data_abs, "App.xcarchive")
+    output_dir = File.join(repo_root, "build", "ios")
+    FileUtils.mkdir_p(output_dir)
+
+    export_options_plist = File.join(Dir.tmpdir, "ExportOptions.plist")
+    File.write(export_options_plist, <<~PLIST)
+      <?xml version="1.0" encoding="UTF-8"?>
+      <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+      <plist version="1.0">
+      <dict>
+        <key>method</key>
+        <string>app-store-connect</string>
+        <key>signingStyle</key>
+        <string>manual</string>
+        <key>signingCertificate</key>
+        <string>Apple Distribution</string>
+        <key>teamID</key>
+        <string>#{TEAM_ID}</string>
+        <key>provisioningProfiles</key>
+        <dict>
+          <key>#{APP_ID}</key>
+          <string>#{main_profile_name}</string>
+          <key>#{AUV3_ID}</key>
+          <string>#{auv3_profile_name}</string>
+        </dict>
+      </dict>
+      </plist>
+    PLIST
+
+    sh(
+      "xcodebuild",
+      "-project", xcodeproj_abs,
+      "-scheme", SCHEME_NAME,
+      "-configuration", "Release",
+      "-sdk", "iphoneos",
+      "-derivedDataPath", derived_data_abs,
+      "-archivePath", archive_path,
+      "archive"
+    )
+
+    # Ensure CFBundleVersion and ITSAppUsesNonExemptEncryption in archived Info.plists match
+    Dir.glob(File.join(archive_path, "Products/Applications/**/*.plist")).each do |plist_path|
+      next unless File.basename(plist_path) == "Info.plist"
+      sh("plutil", "-replace", "CFBundleVersion", "-string", next_build, plist_path) rescue nil
+      sh("plutil", "-replace", "ITSAppUsesNonExemptEncryption", "-bool", "false", plist_path) rescue nil
+    end
+
+    sh(
+      "xcodebuild",
+      "-exportArchive",
+      "-archivePath", archive_path,
+      "-exportOptionsPlist", export_options_plist,
+      "-exportPath", output_dir
+    )
+
+    ipa_file = Dir.glob(File.join(output_dir, "*.ipa")).first
+    UI.user_error!("No .ipa file found in #{output_dir}") unless ipa_file
+
+    # 4. Upload to TestFlight (unless skip_testflight_upload is true)
+    if ENV["SKIP_TESTFLIGHT_UPLOAD"] == "true"
+      UI.success("Built IPA at #{ipa_file} (skipping TestFlight upload per SKIP_TESTFLIGHT_UPLOAD=true)")
+    else
+      upload_to_testflight(
+        api_key: api_key,
+        ipa: ipa_file,
+        skip_waiting_for_build_processing: true
+      )
+    end
+  end
+end
