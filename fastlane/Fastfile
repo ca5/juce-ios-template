@@ -115,29 +115,51 @@ platform :ios do
     cert_id = Actions.lane_context[SharedValues::CERT_CERTIFICATE_ID]
     app_display_name = SCHEME_NAME.sub(/_Standalone$/, "")
 
-    # Ensure App Identifiers and App Store Connect entries exist
+    # Ensure Bundle IDs exist on Apple Developer Portal via ConnectAPI
     begin
-      produce(
-        api_key: api_key,
-        app_identifier: APP_ID,
-        app_name: app_display_name,
-        language: "en-US",
-        team_id: TEAM_ID
-      )
-    rescue => ex
-      UI.message("produce main app notice: #{ex.message}")
-    end
+      require "spaceship"
+      Spaceship::ConnectAPI.token ||= Spaceship::ConnectAPI::Token.from(hash: api_key)
 
-    begin
-      produce(
-        api_key: api_key,
-        app_identifier: AUV3_ID,
-        app_name: "#{app_display_name} AUv3",
-        skip_itc: true,
-        team_id: TEAM_ID
-      )
+      [
+        { id: APP_ID, name: app_display_name },
+        { id: AUV3_ID, name: "#{app_display_name} AUv3" }
+      ].each do |item|
+        existing = Spaceship::ConnectAPI.get_bundle_ids(filter: { identifier: item[:id] }).first
+        if existing
+          UI.message("Bundle ID #{item[:id]} already exists on Developer Portal.")
+        else
+          UI.message("Creating Bundle ID #{item[:id]} (#{item[:name]}) on Developer Portal...")
+          begin
+            Spaceship::ConnectAPI.post_bundle_id(
+              name: item[:name],
+              platform: "IOS",
+              identifier: item[:id]
+            )
+          rescue => e
+            UI.message("post_bundle_id notice for #{item[:id]}: #{e.message}")
+          end
+        end
+      end
+
+      # Ensure App entry exists on App Store Connect
+      existing_app = Spaceship::ConnectAPI.get_apps(filter: { bundleId: APP_ID }).first
+      if existing_app
+        UI.message("App Store Connect app entry for #{APP_ID} already exists.")
+      else
+        UI.message("Creating App Store Connect app entry for #{APP_ID}...")
+        begin
+          Spaceship::ConnectAPI.post_app(
+            name: app_display_name,
+            bundle_id: APP_ID,
+            primary_locale: "en-US",
+            sku: "app-#{APP_ID.tr('.', '-')}-#{Time.now.to_i}"
+          )
+        rescue => e
+          UI.message("post_app notice for #{APP_ID}: #{e.message}")
+        end
+      end
     rescue => ex
-      UI.message("produce AUv3 extension notice: #{ex.message}")
+      UI.message("ConnectAPI registration notice: #{ex.class}: #{ex.message}")
     end
 
     get_provisioning_profile(
