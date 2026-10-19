@@ -133,7 +133,8 @@ platform :ios do
             Spaceship::ConnectAPI.post_bundle_id(
               name: item[:name],
               platform: "IOS",
-              identifier: item[:id]
+              identifier: item[:id],
+              seed_id: TEAM_ID
             )
           rescue => e
             UI.message("post_bundle_id notice for #{item[:id]}: #{e.message}")
