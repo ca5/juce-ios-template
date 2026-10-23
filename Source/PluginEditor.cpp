@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Haptics.h"
 
 JuceAppTemplateAudioProcessorEditor::JuceAppTemplateAudioProcessorEditor (JuceAppTemplateAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
@@ -101,6 +102,16 @@ void JuceAppTemplateAudioProcessorEditor::handleWebEvent (const juce::String& ev
             if (auto* param = processorRef.apvts.getParameter ("gain"))
                 param->setValueNotifyingHost (param->getNormalisableRange().convertTo0to1 (gainVal));
         }
+    }
+    else if (eventName == "haptic")
+    {
+        juce::String styleStr = "light";
+        if (payload.isObject())
+            styleStr = payload.getProperty ("style", "light").toString();
+        else if (payload.isString())
+            styleStr = payload.toString();
+
+        Haptics::triggerFromString (styleStr);
     }
 }
 

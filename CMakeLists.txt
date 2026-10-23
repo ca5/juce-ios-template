@@ -54,7 +54,15 @@ target_sources(JuceAppTemplate PRIVATE
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
+    Source/Haptics.h
 )
+
+if(APPLE)
+    enable_language(OBJCXX)
+    target_sources(JuceAppTemplate PRIVATE Source/Haptics.mm)
+else()
+    target_sources(JuceAppTemplate PRIVATE Source/Haptics.cpp)
+endif()
 
 # Custom Standalone App (suppresses "Audio input is muted to avoid feedback loop" warning banner)
 target_sources(JuceAppTemplate_Standalone PRIVATE Source/StandaloneApp.cpp)
