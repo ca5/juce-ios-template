@@ -10,6 +10,9 @@ JUCE 8 + React Web UI + CMake による、**iOS Standalone アプリ** および
   - JUCE 8 + CMake による最新設計。
   - iOS Standalone アプリ + AUv3 AppExtension（GarageBand, AUM, Logic Pro for iPad等で動作）を同時生成。
   - macOS デスクトップ環境でもそのまま即時実行・デバッグ可能。
+- **AUv3 プラグインホスティング機能内蔵**:
+  - Standalone アプリからサードパーティ製および Apple 標準 AUv3 プラグインをスキャン・ロード・UI 表示・エフェクト処理可能。
+  - `inter-app-audio` エンタイトルメント、非同期プラグイン検知通知 (`AVAudioUnitComponentManagerRegistrationsChangedNotification`)、安全なバスレイアウト設定、クラッシュ防止の安全アンロードを最初から解決済み。
 - **Modern Single-File Web UI**:
   - React 19 + TypeScript + Vite (`vite-plugin-singlefile`) による軽量・美麗な単一 HTML バンドル。
   - C++ Native ⇄ Web UI の双方向通信ブリッジ内蔵（パラメータ同期・イベント発行）。

@@ -55,13 +55,20 @@ target_sources(JuceAppTemplate PRIVATE
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/Haptics.h
+    Source/AUv3/AUv3Manager.h
 )
 
 if(APPLE)
     enable_language(OBJCXX)
-    target_sources(JuceAppTemplate PRIVATE Source/Haptics.mm)
+    target_sources(JuceAppTemplate PRIVATE
+        Source/Haptics.mm
+        Source/AUv3/AUv3Manager.mm
+    )
 else()
-    target_sources(JuceAppTemplate PRIVATE Source/Haptics.cpp)
+    target_sources(JuceAppTemplate PRIVATE
+        Source/Haptics.cpp
+        Source/AUv3/AUv3Manager.cpp
+    )
 endif()
 
 # Custom Standalone App (suppresses "Audio input is muted to avoid feedback loop" warning banner)
@@ -73,6 +80,7 @@ target_compile_definitions(JuceAppTemplate PUBLIC
     JUCE_WEB_BROWSER=1
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
+    JUCE_PLUGINHOST_AU=1
 )
 
 target_link_libraries(JuceAppTemplate PRIVATE
@@ -108,6 +116,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
         XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS "YES"
         XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2" # iPhone and iPad
+    )
+
+    set_target_properties(JuceAppTemplate_Standalone PROPERTIES
+        XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/Assets/JuceAppTemplate_Standalone.entitlements"
     )
 
     add_custom_command(TARGET JuceAppTemplate_Standalone POST_BUILD

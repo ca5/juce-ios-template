@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
+#include "AUv3/AUv3Manager.h"
 
 class JuceAppTemplateAudioProcessor : public juce::AudioProcessor
 {
@@ -35,9 +36,13 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    AUv3Manager& getAUv3Manager() { return auv3Manager; }
+
     juce::AudioProcessorValueTreeState apvts;
 
 private:
+    AUv3Manager auv3Manager;
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JuceAppTemplateAudioProcessor)

@@ -9,13 +9,16 @@
 - `CMakeLists.txt`: JUCE + iOS Standalone + AUv3 + React Web UI バンドルの統合ビルド定義
 - `Source/`: C++ オーディオ DSP および JUCE WebView エディタ実装
   - `PluginProcessor.cpp` / `PluginProcessor.h`: オーディオエンジン、MIDI処理、パラメータ（APVTS）
-  - `PluginEditor.cpp` / `PluginEditor.h`: JUCE WebView ホスト、ネイティブ ⇄ Web UI 双方向イベント通信
+  - `PluginEditor.cpp` / `PluginEditor.h`: JUCE WebView ホスト、ネイティブ ⇄ Web UI 双方向イベント通信、AUv3 ネイティブ UI オーバーレイ
+  - `AUv3/AUv3Manager.h` / `AUv3Manager.mm`: AUv3 プラグインホストマネージャー（プラグイン検出、安全ロード、Dry/Wet ミックス、UI表示）
   - `StandaloneApp.cpp`: "Audio input is muted..." 警告バーを非表示化したカスタム Standalone 実装
 - `ui/`: React 19 + TypeScript + Vite によるフロントエンド UI
-  - `src/bridge.ts`: JUCE ネイティブ双方向バインディング（イベント送信・購読）
+  - `src/bridge.ts`: JUCE ネイティブ双方向バインディング（イベント送信・購読、AUv3 制御 API 含む）
   - `src/App.tsx`: メイン UI コンポーネント
-  - `tests/project.test.mjs`: プロジェクト設定・アイコン・UI バンドル自動検証テスト
-- `Assets/`: アプリアイコン（`icon.png` 1024×1024 RGB、アルファチャンネル無し必須）
+  - `tests/project.test.mjs`: プロジェクト設定・アイコン・UI バンドル・AUv3 設定自動検証テスト
+- `Assets/`:
+  - `icon.png`: アプリアイコン（1024×1024 RGB、アルファチャンネル無し必須）
+  - `JuceAppTemplate_Standalone.entitlements`: iOS Standalone 実行時に AUv3 プラグインをホストするための `inter-app-audio` エンタイトルメント定義
 - `fastlane/`: iOS ビルドおよび TestFlight 自動アップロード設定 (`Fastfile`, `Appfile`)
 - `.github/workflows/`:
   - `deploy.yml`: TestFlight 自動配信ワークフロー（手動実行および `v*` タグ push 対応）

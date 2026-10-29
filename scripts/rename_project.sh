@@ -48,10 +48,16 @@ sed -i '' "s/JuceAppTemplate_Standalone/${NEW_NAME}_Standalone/g" "$ROOT_DIR/fas
 sed -i '' "s/JuceAppTemplate_AUv3/${NEW_NAME}_AUv3/g" "$ROOT_DIR/fastlane/Fastfile"
 sed -i '' "s/JuceAppTemplate/$NEW_NAME/g" "$ROOT_DIR/fastlane/Fastfile"
 
-# 3. Update C++ Source classes
-find "$ROOT_DIR/Source" -type f \( -name "*.h" -o -name "*.cpp" \) -exec sed -i '' "s/JuceAppTemplate/$NEW_NAME/g" {} +
+# 3. Rename Standalone entitlements
+if [ -f "$ROOT_DIR/Assets/JuceAppTemplate_Standalone.entitlements" ]; then
+    mv "$ROOT_DIR/Assets/JuceAppTemplate_Standalone.entitlements" "$ROOT_DIR/Assets/${NEW_NAME}_Standalone.entitlements"
+    sed -i '' "s/JuceAppTemplate_Standalone\.entitlements/${NEW_NAME}_Standalone.entitlements/g" "$ROOT_DIR/CMakeLists.txt"
+fi
 
-# 4. Update UI Title
+# 4. Update C++ Source classes
+find "$ROOT_DIR/Source" -type f \( -name "*.h" -o -name "*.cpp" -o -name "*.mm" \) -exec sed -i '' "s/JuceAppTemplate/$NEW_NAME/g" {} +
+
+# 5. Update UI Title
 sed -i '' "s/JUCE APP TEMPLATE/$NEW_NAME/g" "$ROOT_DIR/ui/src/App.tsx"
 sed -i '' "s/<title>JUCE App Template<\/title>/<title>$NEW_NAME<\/title>/g" "$ROOT_DIR/ui/index.html"
 

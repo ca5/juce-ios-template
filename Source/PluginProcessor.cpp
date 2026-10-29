@@ -92,12 +92,14 @@ void JuceAppTemplateAudioProcessor::changeProgramName (int, const juce::String&)
 {
 }
 
-void JuceAppTemplateAudioProcessor::prepareToPlay (double, int)
+void JuceAppTemplateAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    auv3Manager.prepareToPlay (sampleRate, samplesPerBlock);
 }
 
 void JuceAppTemplateAudioProcessor::releaseResources()
 {
+    auv3Manager.releaseResources();
 }
 
 bool JuceAppTemplateAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -132,6 +134,9 @@ void JuceAppTemplateAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
 
     const auto gain = apvts.getRawParameterValue ("gain")->load();
     buffer.applyGain (gain);
+
+    // AUv3 effect chain processing
+    auv3Manager.processBlock (buffer, midiMessages);
 }
 
 bool JuceAppTemplateAudioProcessor::hasEditor() const

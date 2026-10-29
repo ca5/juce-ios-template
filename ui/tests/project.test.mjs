@@ -19,6 +19,14 @@ test("CMakeLists.txt contains iOS deployment target, team ID, and encryption exe
   assert.match(cmake, /CMAKE_OSX_DEPLOYMENT_TARGET\s+"1[56]\.0"/);
   assert.match(cmake, /ITSAppUsesNonExemptEncryption/);
   assert.match(cmake, /BuildReactUI/);
+  assert.match(cmake, /JUCE_PLUGINHOST_AU=1/);
+});
+
+test("Standalone entitlements file exists and contains inter-app-audio", () => {
+  const entPath = path.join(repoRoot, "Assets/JuceAppTemplate_Standalone.entitlements");
+  assert.ok(fs.existsSync(entPath), "Standalone entitlements file must exist");
+  const ent = fs.readFileSync(entPath, "utf8");
+  assert.match(ent, /inter-app-audio/);
 });
 
 test("App icon Assets/icon.png is 1024x1024 RGB without alpha channel", () => {
